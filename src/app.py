@@ -4,6 +4,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
+import ast
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import streamlit as st
 
 # ==========================================
 # 1. СТАТИЧЕСКИЙ АНАЛИЗ КОДА (AST)
