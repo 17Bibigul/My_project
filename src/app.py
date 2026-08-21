@@ -1,4 +1,3 @@
-Python
 import ast
 import json
 import time
