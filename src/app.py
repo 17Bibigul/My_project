@@ -150,7 +150,7 @@ class SocraticMentorAI:
 Ученик написал следующий код:
 ```python
 {user_code}
-           
+"""           
        
       
    
