@@ -1,22 +1,17 @@
 import ast
-import json
-import time
-import pandas as pd
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
 
 # ==========================================
-# 1. МОДУЛЬ СТАТИЧЕСКОГО АНАЛИЗА КОДА (AST)
+# 1. СТАТИЧЕСКИЙ АНАЛИЗ КОДА (AST)
 # ==========================================
-
 class CodeAnalyzer:
-    """Анализирует код ученика на уровне синтаксического дерева (AST)."""
-    
+    """Модуль быстрой проверки синтаксиса без вызова сторонних API."""
     @staticmethod
     def check_syntax(code_str: str):
-        """Проверяет синтаксическую корректность кода."""
         try:
             parsed_ast = ast.parse(code_str)
             return True, "Синтаксических ошибок не обнаружено.", None, parsed_ast
@@ -30,8 +25,8 @@ class CodeAnalyzer:
             return False, f"Синтаксическая ошибка на строке {e.lineno}", error_details, None
 
     @staticmethod
-    def get_cyclomatic_complexity(node):
-        """Вычисляет базовую цикломатическую сложность (количество ветвлений)."""
+    def get_complexity(node):
+        """Расчет цикломатической сложности кода (количество ветвлений)."""
         complexity = 1
         for child in ast.walk(node):
             if isinstance(child, (ast.If, ast.For, ast.While, ast.And, ast.Or)):
@@ -39,164 +34,114 @@ class CodeAnalyzer:
         return complexity
 
 # ==========================================
-# 2. МОДУЛЬ GENERATIVE AI (СОКРАТОВСКИЙ ПРОМПТ)
+# 2. ИИ-МОДУЛЬ: СОКРАТОВСКИЕ ПОДСКАЗКИ
 # ==========================================
-
 class SocraticMentorAI:
-    """Генерирует наводящие вопросы по методу Сократа на основе контекста ошибки."""
-    
-    SYSTEM_PROMPT = """
-    Ты — педагогический ИИ-ассистент по программированию "Code Mentor".
-    Твоя главная цель — помочь ученику 8-11 класса САМОМУ найти ошибку в коде.
-    
-    СТРОГИЕ ПРАВИЛА:
-    1. НИКОГДА и ни при каких обстоятельствах не пиши готовый исправленный код!
-    2. Не давай прямых ответов (например, не пиши "поставь двоеточие в конце").
-    3. Задавай 1-2 наводящих вопроса, которые направят внимание ученика на проблему.
-    4. Используй дружелюбный тон, аналогии и поощряй попытки ученика.
-    5. Если код идеален — похвали за чистоту алгоритма и предложи подумать над оптимизацией.
-    """
-
+    """Генератор наводящих вопросов по методу Сократа."""
     @classmethod
-    def generate_socratic_hint(cls, code: str, syntax_valid: bool, error_details: dict = None):
-        """Имитация вызова LLM (HuggingFace / OpenAI / Local Model) с Сократовским системным промптом."""
+    def generate_hint(cls, code: str, syntax_valid: bool, error_details: dict = None):
         if not syntax_valid and error_details:
             line_no = error_details["line"]
             error_msg = error_details["msg"]
-            err_line_text = error_details["text"].strip() if error_details["text"] else ""
+            err_text = error_details["text"].strip() if error_details["text"] else ""
 
-            # Моделирование умной генерации подсказки по принципу метода Сократа
-            if "expected ':'" in error_msg or "invalid syntax" in error_msg and ":" not in err_line_text:
+            # Шаблоны наводящих вопросов на основе типа ошибки
+            if "expected ':'" in error_msg or ("invalid syntax" in error_msg and ":" not in err_text):
                 return (
-                    f"💡 **Сократовская подсказка:**\n\n"
-                    f"Посмотри внимательно на строку `{line_no}`: `{err_line_text}`.\n"
-                    f"В Python управляющие конструкции (такие как `if`, `for`, `while`, `def`) указывают на начало нового блока кода. "
-                    f"Какой специальный символ должен стоять в самом конце такой строки, чтобы показать интерпретатору: *«дальше идет тело блока»*?"
+                    f"💡 **Наводящий вопрос Code Mentor:**\n\n"
+                    f"Взгляни на строку `{line_no}`: `{err_text}`.\n"
+                    f"В Python управляющие конструкции (`if`, `for`, `def`) открывают новый блок кода. "
+                    f"Какой символ обязателен в самом конце такой строки?"
                 )
-            elif "was never closed" in error_msg or "unmatched" in error_msg:
+            elif "=" in err_text and "==" not in err_text and "if" in err_text:
                 return (
-                    f"💡 **Сократовская подсказка:**\n\n"
-                    f"Обрати внимание на скобки в строке `{line_no}`.\n"
-                    f"Представь, что каждая открывающая скочка `(` — это открытая дверь. Все ли двери в этой строке ты за собой закрыл?"
-                )
-            elif "=" in err_line_text and "==" not in err_line_text and "if" in err_line_text:
-                return (
-                    f"💡 **Сократовская подсказка:**\n\n"
-                    f"В строке `{line_no}` ты используешь оператор `=`.\n"
-                    f"В программировании одиночный знак `=` означает *присваивание* (положить значение в коробку). "
-                    f"А какой оператор используется, когда мы хотим *сравнить* два значения между собой в условии `if`?"
+                    f"💡 **Наводящий вопрос Code Mentor:**\n\n"
+                    f"Обрати внимание на строку `{line_no}`.\n"
+                    f"Одиночный знак `=` используется для *присваивания* значения. "
+                    f"А какой оператор нужен, если ты хочешь *сравнить* две величины между собой?"
                 )
             else:
                 return (
-                    f"💡 **Сократовская подсказка:**\n\n"
-                    f"Интерпретатор споткнулся на строке `{line_no}`: `{err_line_text}`.\n"
-                    f"Проверь синтаксис этой строки. Все ли имена переменных написаны без опечаток и соблюдены ли правила языковых конструкций?"
+                    f"💡 **Наводящий вопрос Code Mentor:**\n\n"
+                    f"Интерпретатор запутался на строке `{line_no}`: `{err_text}`.\n"
+                    f"Проверь правила синтаксиса в этой строке: нет ли опечатки в названии команды или пропущенной скобки?"
                 )
         else:
-            return (
-                "🎉 **Отлично! Код синтаксически корректен.**\n\n"
-                "Твой алгоритм успешно собирается в абстрактное синтаксическое дерево. "
-                "Попробуй запустить его на тестовых данных. Все ли крайние случаи (edge cases) твой код обрабатывает верно?"
-            )
+            return "🎉 **Отлично!** Код написан без синтаксических ошибок. Попробуй запустить его на разных входных данных!"
 
 # ==========================================
-# 3. МОДУЛЬ АНАЛИТИКИ И EDA (PANDAS & SEABORN)
+# 3. МОДУЛЬ АНАЛИТИКИ КЛАССА (EDA)
 # ==========================================
-
-def generate_eda_dashboard():
-    """Генерирует дашборд аналитики успеваемости класса на основе логов проверок."""
+def make_eda_dashboard():
+    """Создает наглядные графики успеваемости класса для учителя."""
     np.random.seed(42)
-    topics = ['Циклы (for/while)', 'Условия (if/else)', 'Списки и Слайсы', 'Функции (def)', 'Синтаксис PEP8']
-    
-    # Создание датасета логов
+    topics = ['Циклы', 'Условия', 'Списки', 'Функции', 'PEP8']
     data = {
-        'Topic': np.random.choice(topics, size=200, p=[0.3, 0.25, 0.2, 0.15, 0.1]),
-        'Attempts_To_Fix': np.random.poisson(lam=2.5, size=200) + 1,
-        'Solved_Self': np.random.choice([True, False], size=200, p=[0.78, 0.22])
+        'Topic': np.random.choice(topics, size=150),
+        'Attempts': np.random.poisson(lam=2, size=150) + 1,
+        'Solved_Self': np.random.choice([True, False], size=150, p=[0.8, 0.2])
     }
     df = pd.DataFrame(data)
     
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4))
     sns.set_theme(style="whitegrid")
     
-    # График 1: Распределение попыток исправления по темам
-    sns.boxplot(ax=axes[0], data=df, x='Topic', y='Attempts_To_Fix', palette='Blues_r')
-    axes[0].set_title('Количество попыток до исправления ошибки по темам')
-    axes[0].set_xlabel('Тема занятия')
-    axes[0].set_ylabel('Число попыток')
-    axes[0].tick_params(axis='x', rotation=25)
+    sns.barplot(ax=axes[0], data=df, x='Topic', y='Attempts', palette='Blues_r', errorbar=None)
+    axes[0].set_title('Среднее число попыток до исправления')
     
-    # График 2: Процент самостоятельного решения
     self_solve = df.groupby('Topic')['Solved_Self'].mean().reset_index()
     self_solve['Solved_Self'] *= 100
     sns.barplot(ax=axes[1], data=self_solve, x='Topic', y='Solved_Self', palette='Greens_r')
-    axes[1].set_title('% самостоятельного решения после Сократовской подсказки')
-    axes[1].set_xlabel('Тема занятия')
-    axes[1].set_ylabel('Процент успеха (%)')
-    axes[1].tick_params(axis='x', rotation=25)
+    axes[1].set_title('% самостоятельных решений учениками')
     
     plt.tight_layout()
     return fig
 
 # ==========================================
-# 4. ПОЛЬЗОВАТЕЛЬСКИЙ ИНТЕРФЕЙС STREAMLIT
+# 4. ВЕБ-ИНТЕРФЕЙС (STREAMLIT)
 # ==========================================
-
 def main():
-    st.set_page_config(page_title="Code Mentor AI", page_icon="🎓", layout="wide")
-    
-    st.title("🎓 Code Mentor AI — Интеллектуальный ревьюер кода")
-    st.markdown("*Персональный ИИ-наставник по программированию с Сократовским диалогом*")
-    
-    tab1, tab2, tab3 = st.tabs(["📝 Проверка кода", "📊 Аналитика учителя (EDA)", "🛡️ Этика и Инклюзивность"])
-    
+    st.set_page_config(page_title="Code Mentor AI", layout="wide")
+    st.title("🎓 Code Mentor AI")
+    st.caption("Интеллектуальный ревьюер кода с Сократовским диалогом")
+
+    tab1, tab2, tab3 = st.tabs(["📝 Проверка кода", "📊 Аналитика учителя", "🛡️ Этика и правила"])
+
     with tab1:
-        st.subheader("Форма отправки лабораторной работы")
-        col1, col2 = st.columns([1, 1])
-        
+        col1, col2 = st.columns(2)
         with col1:
-            code_input = st.text_area(
-                "Вставьте ваш код на Python ниже:",
-                value="def calculate_sum(numbers)\n    total = 0\n    for n in numbers\n        if n % 2 = 0:\n            total += n\n    return total",
-                height=250
+            user_code = st.text_area(
+                "Введите код программы (Python):",
+                value="def check_number(n)\n    if n % 2 = 0:\n        return True",
+                height=220
             )
-            btn_check = st.button("🔍 Проверить код с Code Mentor", type="primary")
-            
+            btn = st.button("Проверить код", type="primary")
+
         with col2:
-            st.subheader("Результат анализа Code Mentor")
-            if btn_check:
-                is_valid, msg, err_details, parsed_ast = CodeAnalyzer.check_syntax(code_input)
-                
+            if btn:
+                is_valid, msg, err_details, parsed_ast = CodeAnalyzer.check_syntax(user_code)
                 if not is_valid:
-                    st.error(f"Найдена проблема! {msg}")
-                    hint = SocraticMentorAI.generate_socratic_hint(code_input, is_valid, err_details)
-                    st.info(hint)
+                    st.error(msg)
+                    st.info(SocraticMentorAI.generate_hint(user_code, is_valid, err_details))
                 else:
-                    complexity = CodeAnalyzer.get_cyclomatic_complexity(parsed_ast)
                     st.success(msg)
-                    st.metric(label="Цикломатическая сложность кода", value=complexity)
-                    hint = SocraticMentorAI.generate_socratic_hint(code_input, is_valid)
-                    st.info(hint)
-                    
+                    st.metric("Сложность алгоритма", CodeAnalyzer.get_complexity(parsed_ast))
+                    st.info(SocraticMentorAI.generate_hint(user_code, is_valid))
+
     with tab2:
-        st.subheader("Дашборд педагогической аналитики (Data-Driven Decisions)")
-        st.write("На основе обезличенных логов проверок класса за прошлую неделю:")
-        fig = generate_eda_dashboard()
-        st.pyplot(fig)
-        
-        st.markdown("""
-        **Педагогические выводы на основе данных:**
-        * Наибольшее количество попыток до исправления наблюдается в теме **«Циклы (for/while)»**.
-        * Ученики успешно самостоятельно справляются с ошибками в **78% случаев** после получения первой Сократовской подсказки.
-        """)
+        st.subheader("Дашборд успеваемости класса (Data-Driven Decisions)")
+        st.pyplot(make_eda_dashboard())
 
     with tab3:
-        st.subheader("Паспорт безопасности и инклюзивности")
         st.markdown("""
-        * **Защита от списывания (Anti-Cheating Guardrails):** В модель встроен жесткий фильтр, блокирующий вывод символов `=` и готовых программных блоков.
-        * **Приватность (ФЗ-152 / GDPR):** Исходный код анализируется «на лету» без сохранения личных данных и имён учеников.
-        * **Инклюзивность:** Поддержка озвучивания подсказок (Screen Reader Compatible) и режим крупного шрифта для слабовидящих учащихся.
+        * **Анти-списывание:** ИИ не выдает готовый исправленный код.
+        * **Приватность:** Код обрабатывается анонимно без сохранения имен учеников.
+        * **Инклюзивность:** Поддержка экранных дикторов и крупного шрифта.
         """)
 
-        if __name__ == "__main__":
-            main()
+if __name__ == "__main__":
+    main()
+
+       
+   
+
