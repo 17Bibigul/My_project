@@ -120,20 +120,30 @@ def main():
             if st.button("▶️ Запустить код"):
                 if user_code.strip():
                     import io, sys
-                    buffer = io.StringIO()
-                    sys.stdout = buffer
+
+                    # Сохраняем оригинал и подготавливаем перехват вывода
+                    old_stdout = sys.stdout
+                    sys.stdout = buffer = io.StringIO()
+
+                    # Функция-заглушка для input(), чтобы код с input() не зависал
+                    custom_globals = {"input": lambda prompt="": "0"}
+
                     try:
-                        exec(user_code, {})
+                        exec(user_code, custom_globals)
                         output = buffer.getvalue()
+
                         st.markdown("*Результат выполнения:*")
                         if output:
                             st.code(output, language="text")
                         else:
-                            st.info("Код выполнен успешно, но ничего не вывел (добавьте print).")
+                            st.info(
+                                "Код выполнен без ошибок, но ничего не вывел (добавьте print)."
+                            )
                     except Exception as e:
-                        st.error(f"Ошибка выполнения: {e}")
+                        st.error(f"Ошибка при выполнении кода:\n{e}")
                     finally:
-                        sys.stdout = sys._stdout_
+                        # Надежно возвращаем стандартный вывод назад
+                        sys.stdout = old_stdout
         with col2:
             if btn:
                 is_valid, msg, err_details, parsed_ast = CodeAnalyzer.check_syntax(user_code)
