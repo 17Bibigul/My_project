@@ -115,8 +115,25 @@ def main():
                 value="def check_number(n)\n    if n % 2 = 0:\n        return True",
                 height=220
             )
-            btn = st.button("Проверить код", type="primary")
-
+            btn = st.button("Проверить код", type="primary")         
+            # --- ВСТАВЛЯЙТЕ СЮДА (строка 119) ---
+            if st.button("▶️ Запустить код"):
+                if user_code.strip():
+                    import io, sys
+                    buffer = io.StringIO()
+                    sys.stdout = buffer
+                    try:
+                        exec(user_code, {})
+                        output = buffer.getvalue()
+                        st.markdown("*Результат выполнения:*")
+                        if output:
+                            st.code(output, language="text")
+                        else:
+                            st.info("Код выполнен успешно, но ничего не вывел (добавьте print).")
+                    except Exception as e:
+                        st.error(f"Ошибка выполнения: {e}")
+                    finally:
+                        sys.stdout = sys._stdout_
         with col2:
             if btn:
                 is_valid, msg, err_details, parsed_ast = CodeAnalyzer.check_syntax(user_code)
